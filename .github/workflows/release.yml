@@ -41,4 +41,4 @@ jobs:
             "dist/Curlbrew-${version}.zip" \
             "dist/Curlbrew-${version}.dmg" \
             --title "Curlbrew ${version}" \
-            --notes "Actualización de Curlbrew ${version}. El zip lo instala la propia app; el DMG es para instalarla por primera vez."
+            --notes "Curlbrew ${version}. Descarga el instalador desde esta página y arrastra Curlbrew a Aplicaciones."
