@@ -1,155 +1,157 @@
 # Curlbrew
 
-App nativa de macOS para ver y administrar **Homebrew, npm, pnpm y bun**, y para lanzar instaladores oficiales por `curl` con el comando a la vista.
+**English** · [Español](README.es.md)
 
-La idea es la de [BrewUI](https://github.com/Homebrew/brewui): una ventana para quien no quiere vivir en la terminal, **sin esconder qué se va a ejecutar**. Cada acción muestra el comando exacto y pide confirmación antes de correrlo.
+A native macOS app to browse and manage **Homebrew, npm, pnpm and bun**, and to run official `curl` installers with the command in plain sight.
 
-El código es independiente. BrewUI es AGPL y este proyecto no reutiliza su código.
+The idea comes from [BrewUI](https://github.com/Homebrew/brewui): a window for people who don't want to live in the terminal, **without hiding what is about to run**. Every action shows the exact command and asks for confirmation before running it.
+
+The code is independent. BrewUI is AGPL and this project does not reuse its code.
 
 <p align="center">
-  <img src="Resources/AppIcon.png" width="128" alt="Icono de Curlbrew">
+  <img src="Resources/AppIcon.png" width="128" alt="Curlbrew icon">
 </p>
 
-## Requisitos
+## Requirements
 
-- macOS 14 (Sonoma) o posterior
-- **Apple Silicon** (M1–M5). El binario es arm64; no hay slice Intel.
-- Command Line Tools o Xcode. En esta máquina se compila solo con las Command Line Tools.
+- macOS 14 (Sonoma) or later
+- **Apple Silicon** (M1–M5). The binary is arm64; there is no Intel slice.
+- Command Line Tools or Xcode. This machine builds with the Command Line Tools alone.
 
-## Instalar
+## Install
 
-Descarga `Curlbrew-<versión>.dmg` desde [Releases](../../releases), ábrelo y arrastra **Curlbrew** a la carpeta **Applications**.
+Download `Curlbrew-<version>.dmg` from [Releases](../../releases), open it and drag **Curlbrew** into **Applications**.
 
-La firma es **ad-hoc**, no notarizada: no hay cuenta de desarrollador Apple. La primera vez macOS pedirá confirmación. Abre con **clic derecho → Abrir**, o quita la cuarentena:
+The signature is **ad-hoc**, not notarized: there is no Apple developer account. macOS will ask for confirmation the first time. Open with **right-click → Open**, or clear the quarantine flag:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Curlbrew.app
 ```
 
-## Actualizaciones de la app
+## App updates
 
-Un push a `main` no actualiza a quien ya instaló Curlbrew. La copia instalada solo cambia cuando existe una [release](https://github.com/Izzy2024/curl-brew/releases/latest) con un tag `vX.Y.Z` mayor que el suyo, y el zip `Curlbrew-X.Y.Z.zip`.
+A push to `main` does not update anyone who already installed Curlbrew. The installed copy only changes when a [release](https://github.com/Izzy2024/curl-brew/releases/latest) exists with a `vX.Y.Z` tag higher than its own, plus the `Curlbrew-X.Y.Z.zip` asset.
 
-La versión que lleva el bundle hoy, si no se pasa otra, es `0.1.0`. La primera release que el público pueda instalar tiene que ser mayor, por ejemplo `v0.2.0`. Una copia anterior, sin el botón de actualizar, no se entera sola: hay que instalar esa primera release a mano.
+The version the bundle carries today, when no other is passed, is `0.1.0`. The first release the public can install must be higher, for example `v0.2.0`. An older copy without the update button will not notice on its own: that first release has to be installed by hand.
 
-### Quien ya la tiene en Aplicaciones
+### If you already have it in Applications
 
-1. Abre **Curlbrew** desde `/Applications`, no desde la descarga ni desde el DMG montado. Si macOS la abrió en cuarentena, muévela a Aplicaciones y ábrela desde ahí.
-2. Al arrancar consulta la última release. También está **Buscar actualización** en la barra y en Resumen.
-3. Si hay versión nueva, el botón pasa a **Actualizar a X.Y.Z**. La hoja muestra la URL del zip.
-4. **Actualizar** descarga ese zip, comprueba que dentro va `Curlbrew.app` con identificador `app.curlbrew.macos` y esa versión, en arm64, reemplaza la copia abierta y la vuelve a abrir.
+1. Open **Curlbrew** from `/Applications`, not from the download or the mounted DMG. If macOS opened it in quarantine, move it to Applications and open it from there.
+2. On launch it checks the latest release. There is also **Check for Update** in the toolbar and in Overview.
+3. If there is a newer version, the button becomes **Update to X.Y.Z**. The sheet shows the zip URL.
+4. **Update** downloads that zip, checks it contains `Curlbrew.app` with identifier `app.curlbrew.macos` and that version, on arm64, replaces the running copy and reopens it.
 
-El registro de abajo deja los comandos (`ditto`, `lipo`, `xattr`). Si GitHub todavía no tiene releases, el aviso es que no hay una versión publicada.
+The log at the bottom records the commands (`ditto`, `lipo`, `xattr`). If GitHub has no releases yet, the notice says no version has been published.
 
-### Cómo publicarla
+### How to publish it
 
-El cambio tiene que estar en el commit que etiquetas. Luego:
+The change must be in the commit you tag. Then:
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-El tag tiene que ser `v` y tres números (`v0.2.0`). `v0.2` o `v0.2.0-beta` no disparan el workflow ni las ofrece la app. El número tiene que ser mayor que el de las copias ya instaladas: `0.10.0` es mayor que `0.9.0`.
+The tag must be `v` plus three numbers (`v0.2.0`). `v0.2` or `v0.2.0-beta` neither trigger the workflow nor get offered by the app. The number must be higher than the installed copies: `0.10.0` is higher than `0.9.0`.
 
-Eso corre `.github/workflows/release.yml` en un Mac arm64. El workflow compila con `CURLBREW_VERSION` igual al tag, firma la app y publica dos archivos en la release:
+That runs `.github/workflows/release.yml` on an arm64 Mac. The workflow builds with `CURLBREW_VERSION` set to the tag, signs the app and publishes two files to the release:
 
-| Archivo | Para qué |
+| File | Purpose |
 | --- | --- |
-| `Curlbrew-0.2.0.zip` | Lo descarga el botón **Actualizar** |
-| `Curlbrew-0.2.0.dmg` | Primera instalación: se arrastra a Aplicaciones |
+| `Curlbrew-0.2.0.zip` | Downloaded by the **Update** button |
+| `Curlbrew-0.2.0.dmg` | First install: drag it to Applications |
 
-La versión del bundle sale del tag. En local, sin tag, `make app` sigue dejando `0.1.0`. Para probar otro número: `CURLBREW_VERSION=0.2.0 make app`.
+The bundle version comes from the tag. Locally, with no tag, `make app` still produces `0.1.0`. To try another number: `CURLBREW_VERSION=0.2.0 make app`.
 
-La firma sigue siendo ad-hoc. Quien recibe la actualización confía en la release de este repositorio, no en una notarización de Apple.
+The signature is still ad-hoc. Whoever receives the update trusts this repository's release, not an Apple notarization.
 
-## Compilar desde el código
+## Build from source
 
 ```bash
 git clone https://github.com/Izzy2024/curl-brew.git
 cd curl-brew
 
-make test     # pruebas
-make app      # compila y firma Curlbrew.app
-make dmg      # empaqueta dist/Curlbrew-<versión>.dmg
+make test     # tests
+make app      # builds and signs Curlbrew.app
+make dmg      # packages dist/Curlbrew-<version>.dmg
 
 open Curlbrew.app
 ```
 
-`make` compila en `/tmp/curlbrew-build`. La carpeta del proyecto puede estar en un volumen que marca los directorios con metadatos de Finder, y `codesign` rechaza el bundle de tests si `.build` se queda ahí.
+`make` builds into `/tmp/curlbrew-build`. The project folder may live on a volume that stamps Finder metadata onto directories, and `codesign` rejects the test bundle if `.build` stays there.
 
-`make dmg` necesita [create-dmg](https://github.com/create-dmg/create-dmg):
+`make dmg` needs [create-dmg](https://github.com/create-dmg/create-dmg):
 
 ```bash
 brew install create-dmg
 ```
 
-La interfaz es SwiftUI, pero sin `@State` ni `@Bindable`: las Command Line Tools no incluyen el plugin `SwiftUIMacros`. El estado vive en `AppModel`.
+The interface is SwiftUI, but without `@State` or `@Bindable`: the Command Line Tools do not include the `SwiftUIMacros` plugin. State lives in `AppModel`.
 
-## Qué administra
+## What it manages
 
-| Gestor | Inventario | Buscar / instalar / quitar / actualizar |
+| Manager | Inventory | Search / install / remove / upgrade |
 | --- | --- | --- |
-| Homebrew | fórmulas y casks | sí, con `brew` y argumentos, sin shell |
-| npm | paquetes globales | sí |
-| pnpm | paquetes globales | sí. En la conversación, “pmp” es pnpm |
-| bun | `~/.bun/install/global/package.json` | sí, siempre con `--global` |
+| Homebrew | formulae and casks | yes, via `brew` with arguments, no shell |
+| npm | global packages | yes |
+| pnpm | global packages | yes. In conversation, "pmp" means pnpm |
+| bun | `~/.bun/install/global/package.json` | yes, always with `--global` |
 
-Los instaladores `curl` solo se ejecutan si el texto coincide con la lista blanca de `CurlCatalog`. Ahí está Magpie (`curl -fsSL https://usemagpie.ai/install.sh | sh`): la app queda en `/Applications/magpie.app` o `~/Applications/magpie.app`, y el comando en `~/.local/bin/magpie`. Quitarlo usa el mismo script con `--uninstall` y deja `~/.config/magpie`.
+`curl` installers only run if the text matches the allowlist in `CurlCatalog`. That includes Magpie (`curl -fsSL https://usemagpie.ai/install.sh | sh`): the app lands in `/Applications/magpie.app` or `~/Applications/magpie.app`, and the command in `~/.local/bin/magpie`. Removing it uses the same script with `--uninstall` and leaves `~/.config/magpie` in place.
 
-El nombre de un paquete no puede ser una bandera (`--force`) y entra como un argumento, nunca dentro de una cadena de shell.
+A package name cannot be a flag (`--force`) and is passed as an argument, never inside a shell string.
 
-`bun outdated --global` no se usa: en macOS recorre directorios padres y lista un proyecto que no es el global.
+`bun outdated --global` is not used: on macOS it walks parent directories and lists a project that is not the global one.
 
-## Actualizaciones primero
+## Updates first
 
-La lista de cada gestor abre ordenada por **actualizaciones primero**: lo que tiene versión nueva queda arriba, en su propia sección con el número, y lo demás debajo en “Al día”. No hay que buscar entre cientos de paquetes.
+Each manager's list opens sorted **updates first**: anything with a new version sits on top, in its own section with a count, and the rest below under "Up to date". No digging through hundreds of packages.
 
-- **Resumen** lista todas las actualizaciones pendientes, agrupadas por gestor, con `instalada → disponible` y un botón por paquete. También hay “Actualizar todo” por gestor. El badge del sidebar y del Resumen cuenta el total.
-- Filtros de la barra: **Solo actualizaciones**, **Orden** (actualizaciones primero, nombre, versión) y **Tipo** (fórmula, cask, global).
-- La búsqueda mira nombre y resumen. Al cambiar de gestor los filtros se reinician para no dejar la lista vacía.
+- **Overview** lists every pending update, grouped by manager, with `installed → available` and a button per package. There is also "Update all" per manager. The sidebar and Overview badges show the total.
+- Toolbar filters: **Updates only**, **Sort** (updates first, name, version) and **Kind** (formula, cask, global).
+- Search looks at name and summary. Switching managers resets the filters so the list is never left empty.
 
-El orden vive en `CellarCore/PackageOrdering.swift` y se prueba sin UI en `Tests/CellarCoreTests/CoreTests.swift`. La comparación de versiones es numérica por trozos: `1.10.0` es mayor que `1.9.2`.
+The ordering lives in `CellarCore/PackageOrdering.swift` and is tested without UI in `Tests/CellarCoreTests/CoreTests.swift`. Version comparison is numeric per component: `1.10.0` is higher than `1.9.2`.
 
-## Seguridad
+## Security
 
-Nada se ejecuta a ciegas:
+Nothing runs blindly:
 
-- Los comandos se arman como `argv`, sin `zsh -c`. Un nombre de paquete nunca se interpreta como shell.
-- Los instaladores `curl` pasan por `AllowlistedShellRunner`, que solo acepta las líneas exactas de `CurlCatalog`.
-- Antes de ejecutar, una hoja de confirmación muestra el comando completo, con opción de copiarlo.
-- Las operaciones se pueden **detener**; el registro queda visible en la parte inferior.
+- Commands are built as `argv`, with no `zsh -c`. A package name is never interpreted as shell.
+- `curl` installers go through `AllowlistedShellRunner`, which only accepts the exact lines in `CurlCatalog`.
+- Before running, a confirmation sheet shows the full command, with an option to copy it.
+- Operations can be **stopped**; the log stays visible at the bottom.
 
-## Estructura
+## Layout
 
 ```
 Sources/
-  CellarCore/        modelos, localizador de binarios, ejecutor de argv, orden y filtros
-  CellarProviders/   Homebrew, npm, pnpm, bun y el catálogo de instaladores curl
-  CurlbrewApp/       interfaz SwiftUI y AppModel
-Tests/               pruebas de Core y Providers, con fixtures reales de cada CLI
-Scripts/             package-app.sh (bundle + firma) y package-dmg.sh (DMG)
-.github/workflows/   release.yml publica zip y DMG al etiquetar vX.Y.Z
-Resources/           icono y fondo del DMG
-docs/                plan de implementación
+  CellarCore/        models, binary locator, argv runner, ordering and filters
+  CellarProviders/   Homebrew, npm, pnpm, bun and the curl installer catalog
+  CurlbrewApp/       SwiftUI interface and AppModel
+Tests/               Core and Providers tests, with real fixtures from each CLI
+Scripts/             package-app.sh (bundle + signing) and package-dmg.sh (DMG)
+.github/workflows/   release.yml publishes zip and DMG when tagging vX.Y.Z
+Resources/           icon and DMG background
+docs/                implementation plan
 ```
 
-| Módulo | Responsabilidad |
+| Module | Responsibility |
 | --- | --- |
 | `CellarCore` | `InstalledPackage`, `PackageUpgrade`, `PackageOrdering`, `AppUpdateFeed`, `BinaryLocator`, `ProcessCommandRunner` |
-| `CellarProviders` | un `PackageProvider` por gestor; `CurlCatalog` para los instaladores |
-| `CurlbrewApp` | `RootView` (sidebar), `ProviderBrowser`, `InstallerBrowser`, `AppModel` (estado y operaciones) |
+| `CellarProviders` | one `PackageProvider` per manager; `CurlCatalog` for the installers |
+| `CurlbrewApp` | `RootView` (sidebar), `ProviderBrowser`, `InstallerBrowser`, `AppModel` (state and operations) |
 
-## El DMG
+## The DMG
 
-`make dmg` compila, firma y empaqueta `dist/Curlbrew-<versión>.dmg` con [create-dmg](https://github.com/create-dmg/create-dmg). El DMG abre una ventana con el icono de la app y un enlace a `/Applications`: se arrastra uno sobre otro y queda instalada. El fondo es `Resources/dmg-background.png` (1320×840, o sea 660×420 a 2x).
+`make dmg` builds, signs and packages `dist/Curlbrew-<version>.dmg` with [create-dmg](https://github.com/create-dmg/create-dmg). The DMG opens a window with the app icon and an `/Applications` link: drag one onto the other and it is installed. The background is `Resources/dmg-background.png` (1320×840, i.e. 660×420 at 2x).
 
-Para que abra sin el aviso de Gatekeeper haría falta un certificado Developer ID y notarización con `notarytool`.
+Opening it without the Gatekeeper warning would require a Developer ID certificate and notarization with `notarytool`.
 
-## Créditos
+## Credits
 
-El icono es el yin-yang de [Icons8](https://icons8.com), en `Resources/AppIcon.png`.
+The icon is the yin-yang from [Icons8](https://icons8.com), in `Resources/AppIcon.png`.
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
