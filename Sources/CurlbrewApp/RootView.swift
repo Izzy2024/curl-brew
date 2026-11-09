@@ -29,12 +29,39 @@ struct RootView: View {
         }
         .animation(.snappy(duration: 0.32), value: model.notice)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            LogView(lines: model.logLines, busy: model.isBusy || model.isCheckingUpgrades) {
+            LogView(lines: model.logLines, busy: model.isBusy || model.isCheckingUpgrades || model.isUpdatingApp) {
                 model.clearLog()
             }
             .frame(height: 128)
         }
-        .task { model.startReload() }
+        .toolbar {
+            ToolbarItem {
+                Button(model.offeredUpdate == nil ? "Buscar actualización" : "Actualizar a \(model.offeredUpdate?.version ?? "")") {
+                    if model.offeredUpdate != nil {
+                        model.presentAppUpdate()
+                    } else {
+                        Task { await model.checkForAppUpdate(announce: true) }
+                    }
+                }
+                .disabled(model.isBusy || model.isCheckingAppUpdate || model.isUpdatingApp)
+            }
+            if model.isCheckingAppUpdate || model.isUpdatingApp {
+                ToolbarItem { ProgressView().controlSize(.small) }
+            }
+        }
+        .task {
+            model.startReload()
+            await model.checkForAppUpdate(announce: false)
+        }
+        .sheet(isPresented: Binding(get: { model.appUpdatePresented }, set: { model.appUpdatePresented = $0 })) {
+            if let release = model.offeredUpdate {
+                AppUpdateSheet(release: release) {
+                    model.appUpdatePresented = false
+                } onInstall: {
+                    Task { await model.installOfferedUpdate() }
+                }
+            }
+        }
         .onChange(of: model.section) { _, newValue in
             model.query = ""
             // Un filtro de tipo de otro gestor dejaría la lista vacía.
@@ -174,6 +201,36 @@ struct LogView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.bar)
+    }
+}
+
+struct AppUpdateSheet: View {
+    var release: AppRelease
+    var onCancel: () -> Void
+    var onInstall: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Actualizar Curlbrew a \(release.version)").font(.title2)
+            Text("Se descarga el zip de la release, se comprueba que sea \(AppUpdateFeed.bundleIdentifier) \(release.version) y se reemplaza esta copia. Después se vuelve a abrir.")
+                .foregroundStyle(.secondary)
+            Text(release.downloadURL.absoluteString)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            HStack {
+                Spacer()
+                Button("Cancelar", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button("Actualizar", action: onInstall)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 560)
     }
 }
 

@@ -64,6 +64,46 @@ import Testing
     #expect(result.failure == nil)
 }
 
+@Test func newerGitHubReleaseIsTheZipFromThisRepo() throws {
+    let release = try AppUpdateFeed.release(from: releaseJSON("0.2.0"), newerThan: "0.1.0")
+    #expect(release?.version == "0.2.0")
+    #expect(release?.assetName == "Curlbrew-0.2.0.zip")
+    #expect(release?.downloadURL.absoluteString == "https://github.com/Izzy2024/curl-brew/releases/download/v0.2.0/Curlbrew-0.2.0.zip")
+    #expect(try AppUpdateFeed.release(from: releaseJSON("0.2.0"), newerThan: "0.2.0") == nil)
+    #expect(try AppUpdateFeed.release(from: releaseJSON("0.2.0"), newerThan: "0.10.0") == nil)
+}
+
+@Test func versionTenIsNewerThanNine() throws {
+    let release = try AppUpdateFeed.release(from: releaseJSON("0.10.0"), newerThan: "0.9.0")
+    #expect(release?.version == "0.10.0")
+}
+
+@Test func foreignPrereleaseAndQueryUpdatesAreRefused() throws {
+    #expect(throws: AppUpdateFailure.noZip("0.3.0")) {
+        try AppUpdateFeed.release(from: releaseJSON("0.3.0", url: "https://example.com/Curlbrew-0.3.0.zip"), newerThan: "0.1.0")
+    }
+    #expect(throws: AppUpdateFailure.noZip("0.3.0")) {
+        try AppUpdateFeed.release(
+            from: releaseJSON("0.3.0", url: "https://github.com/Izzy2024/curl-brew/releases/download/v0.3.0/Curlbrew-0.3.0.zip?x=1"),
+            newerThan: "0.1.0"
+        )
+    }
+    #expect(try AppUpdateFeed.release(from: releaseJSON("9.0.0", prerelease: true), newerThan: "0.1.0") == nil)
+}
+
+@Test func bundleCheckRequiresIdentifierAndVersion() {
+    let good = Data("""
+    <?xml version="1.0" encoding="UTF-8"?>
+    <plist version="1.0"><dict>
+    <key>CFBundleIdentifier</key><string>app.curlbrew.macos</string>
+    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleExecutable</key><string>Curlbrew</string>
+    </dict></plist>
+    """.utf8)
+    #expect(AppUpdateFeed.validateBundle(good, version: "0.2.0"))
+    #expect(!AppUpdateFeed.validateBundle(good, version: "0.3.0"))
+}
+
 @Test func batchKeepsGoingAfterOneFailure() {
     let report = UpgradeBatch.report([
         UpgradeStep(summary: "Actualizar wget con Homebrew", failed: false, output: ""),
@@ -96,6 +136,17 @@ import Testing
     ))
     #expect(result.failure != nil)
     #expect(result.exitCode == nil)
+}
+
+private func releaseJSON(_ version: String, url: String? = nil, prerelease: Bool = false) -> Data {
+    let download = url ?? "https://github.com/Izzy2024/curl-brew/releases/download/v\(version)/Curlbrew-\(version).zip"
+    let json = """
+    {"tag_name":"v\(version)","prerelease":\(prerelease),"assets":[
+      {"name":"Curlbrew-\(version).dmg","browser_download_url":"https://github.com/Izzy2024/curl-brew/releases/download/v\(version)/Curlbrew-\(version).dmg"},
+      {"name":"Curlbrew-\(version).zip","browser_download_url":"\(download)"}
+    ]}
+    """
+    return Data(json.utf8)
 }
 
 private func fixture(_ name: String, version: String = "1.0.0", kind: PackageKind = .formula) -> InstalledPackage {

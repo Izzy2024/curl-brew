@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Compilar
+        env:
+          CURLBREW_VERSION: ${{ github.ref_name }}
+        run: make app
+
+      - name: Comprobar la versión
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          built=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Curlbrew.app/Contents/Info.plist)
+          test "$built" = "$version"
+
+      - name: Empaquetar
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          ditto -c -k --keepParent Curlbrew.app "dist/Curlbrew-${version}.zip"
+          hdiutil create -volname Curlbrew -srcfolder Curlbrew.app -ov -format UDZO "dist/Curlbrew-${version}.dmg"
+
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/Curlbrew-${version}.zip" \
+            "dist/Curlbrew-${version}.dmg" \
+            --title "Curlbrew ${version}" \
+            --notes "Actualización de Curlbrew ${version}. El zip lo instala la propia app; el DMG es para instalarla por primera vez."

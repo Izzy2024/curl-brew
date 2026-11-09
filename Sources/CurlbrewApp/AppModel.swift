@@ -64,6 +64,10 @@ final class AppModel {
     var section: SidebarItem? = .overview
     var installerSelection: String?
     var notice: StatusNotice?
+    var offeredUpdate: AppRelease?
+    var isCheckingAppUpdate = false
+    var isUpdatingApp = false
+    var appUpdatePresented = false
 
     @ObservationIgnored private let providers: [any PackageProvider]
     @ObservationIgnored private let processRunner: any CommandRunning
@@ -83,6 +87,10 @@ final class AppModel {
         self.processRunner = direct
         self.shellRunner = AllowlistedShellRunner(allowed: CurlCatalog.commands, inner: shellInner)
         self.providers = ProviderCatalog.makeAll(locator: locator, runner: direct)
+    }
+
+    var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
     }
 
     var entries: [ProviderEntry] {
@@ -437,6 +445,63 @@ final class AppModel {
     }
 
     func clearLog() { logLines.removeAll() }
+
+    func checkForAppUpdate(announce: Bool) async {
+        guard !isCheckingAppUpdate, !isUpdatingApp else { return }
+        isCheckingAppUpdate = true
+        defer { isCheckingAppUpdate = false }
+        var request = URLRequest(url: AppUpdateFeed.feedURL)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 20
+        request.setValue("Curlbrew", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 404 {
+                offeredUpdate = nil
+                if announce { showNotice("Todavía no hay una versión publicada", isError: false) }
+                return
+            }
+            guard status == 200 else {
+                throw AppUpdateFailure.unreadable
+            }
+            let release = try AppUpdateFeed.release(from: data, newerThan: appVersion)
+            offeredUpdate = release
+            if let release {
+                showNotice("Curlbrew \(release.version) está disponible", isError: false)
+            } else if announce {
+                showNotice("Curlbrew \(appVersion) está al día", isError: false)
+            }
+        } catch {
+            if announce { errorMessage = error.localizedDescription }
+        }
+    }
+
+    func presentAppUpdate() {
+        guard offeredUpdate != nil else { return }
+        guard AppLocation.bundle != nil else {
+            errorMessage = "Esta copia no se puede reemplazar. Muévela a Aplicaciones y ábrela desde ahí."
+            return
+        }
+        appUpdatePresented = true
+    }
+
+    func installOfferedUpdate() async {
+        guard let release = offeredUpdate, let bundle = AppLocation.bundle else { return }
+        appUpdatePresented = false
+        isUpdatingApp = true
+        defer { isUpdatingApp = false }
+        do {
+            try await AppUpdateInstaller.install(release, into: bundle, runner: processRunner) { text, isError in
+                self.appendLog(text, error: isError)
+            }
+            appendLog("Lista Curlbrew \(release.version). Se vuelve a abrir.", error: false)
+            try await AppUpdateInstaller.relaunch(bundle)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 
     func showNotice(_ text: String, isError: Bool) {
         notice = StatusNotice(text: text, isError: isError)

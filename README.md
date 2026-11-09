@@ -26,6 +26,43 @@ La firma es **ad-hoc**, no notarizada: no hay cuenta de desarrollador Apple. La 
 xattr -dr com.apple.quarantine /Applications/Curlbrew.app
 ```
 
+## Actualizaciones de la app
+
+Un push a `main` no actualiza a quien ya instaló Curlbrew. La copia instalada solo cambia cuando existe una [release](https://github.com/Izzy2024/curl-brew/releases/latest) con un tag `vX.Y.Z` mayor que el suyo, y el zip `Curlbrew-X.Y.Z.zip`.
+
+La versión que lleva el bundle hoy, si no se pasa otra, es `0.1.0`. La primera release que el público pueda instalar tiene que ser mayor, por ejemplo `v0.2.0`. Una copia anterior, sin el botón de actualizar, no se entera sola: hay que instalar esa primera release a mano.
+
+### Quien ya la tiene en Aplicaciones
+
+1. Abre **Curlbrew** desde `/Applications`, no desde la descarga ni desde el DMG montado. Si macOS la abrió en cuarentena, muévela a Aplicaciones y ábrela desde ahí.
+2. Al arrancar consulta la última release. También está **Buscar actualización** en la barra y en Resumen.
+3. Si hay versión nueva, el botón pasa a **Actualizar a X.Y.Z**. La hoja muestra la URL del zip.
+4. **Actualizar** descarga ese zip, comprueba que dentro va `Curlbrew.app` con identificador `app.curlbrew.macos` y esa versión, en arm64, reemplaza la copia abierta y la vuelve a abrir.
+
+El registro de abajo deja los comandos (`ditto`, `lipo`, `xattr`). Si GitHub todavía no tiene releases, el aviso es que no hay una versión publicada.
+
+### Cómo publicarla
+
+El cambio tiene que estar en el commit que etiquetas. Luego:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+El tag tiene que ser `v` y tres números (`v0.2.0`). `v0.2` o `v0.2.0-beta` no disparan el workflow ni las ofrece la app. El número tiene que ser mayor que el de las copias ya instaladas: `0.10.0` es mayor que `0.9.0`.
+
+Eso corre `.github/workflows/release.yml` en un Mac arm64. El workflow compila con `CURLBREW_VERSION` igual al tag, firma la app y publica dos archivos en la release:
+
+| Archivo | Para qué |
+| --- | --- |
+| `Curlbrew-0.2.0.zip` | Lo descarga el botón **Actualizar** |
+| `Curlbrew-0.2.0.dmg` | Primera instalación: se arrastra a Aplicaciones |
+
+La versión del bundle sale del tag. En local, sin tag, `make app` sigue dejando `0.1.0`. Para probar otro número: `CURLBREW_VERSION=0.2.0 make app`.
+
+La firma sigue siendo ad-hoc. Quien recibe la actualización confía en la release de este repositorio, no en una notarización de Apple.
+
 ## Compilar desde el código
 
 ```bash
@@ -92,13 +129,14 @@ Sources/
   CurlbrewApp/       interfaz SwiftUI y AppModel
 Tests/               pruebas de Core y Providers, con fixtures reales de cada CLI
 Scripts/             package-app.sh (bundle + firma) y package-dmg.sh (DMG)
+.github/workflows/   release.yml publica zip y DMG al etiquetar vX.Y.Z
 Resources/           icono y fondo del DMG
 docs/                plan de implementación
 ```
 
 | Módulo | Responsabilidad |
 | --- | --- |
-| `CellarCore` | `InstalledPackage`, `PackageUpgrade`, `PackageOrdering`, `BinaryLocator`, `ProcessCommandRunner` |
+| `CellarCore` | `InstalledPackage`, `PackageUpgrade`, `PackageOrdering`, `AppUpdateFeed`, `BinaryLocator`, `ProcessCommandRunner` |
 | `CellarProviders` | un `PackageProvider` por gestor; `CurlCatalog` para los instaladores |
 | `CurlbrewApp` | `RootView` (sidebar), `ProviderBrowser`, `InstallerBrowser`, `AppModel` (estado y operaciones) |
 

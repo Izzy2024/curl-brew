@@ -78,6 +78,21 @@ struct OverviewView: View {
                 Text("Apple Silicon, un solo binario arm64. Cubre M1, M2, M3, M4 y M5 en macOS 14 o posterior.")
                     .foregroundStyle(.secondary)
             }
+            Section("Curlbrew \(model.appVersion)") {
+                if let update = model.offeredUpdate {
+                    LabeledContent("Disponible", value: update.version)
+                    Button("Actualizar a \(update.version)") { model.presentAppUpdate() }
+                        .disabled(model.isUpdatingApp)
+                } else {
+                    Button(model.isCheckingAppUpdate ? "Buscando…" : "Buscar actualización") {
+                        Task { await model.checkForAppUpdate(announce: true) }
+                    }
+                    .disabled(model.isCheckingAppUpdate || model.isUpdatingApp)
+                }
+                Text("Una release en GitHub reemplaza esta copia. Un push a main no llega solo.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .toolbar {
             ToolbarItem {
