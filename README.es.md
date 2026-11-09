@@ -20,7 +20,7 @@ El código es independiente. BrewUI es AGPL y este proyecto no reutiliza su cód
 
 ## Instalar
 
-Descarga `Curlbrew-<versión>.dmg` desde [Releases](../../releases), ábrelo y arrastra **Curlbrew** a la carpeta **Applications**.
+Descarga el instalador desde [Releases](../../releases), ábrelo y arrastra **Curlbrew** a la carpeta **Applications**.
 
 La firma es **ad-hoc**, no notarizada: no hay cuenta de desarrollador Apple. La primera vez macOS pedirá confirmación. Abre con **clic derecho → Abrir**, o quita la cuarentena:
 
@@ -36,7 +36,7 @@ La versión que lleva el bundle hoy, si no se pasa otra, es `0.1.0`. La primera 
 
 ### Quien ya la tiene en Aplicaciones
 
-1. Abre **Curlbrew** desde `/Applications`, no desde la descarga ni desde el DMG montado. Si macOS la abrió en cuarentena, muévela a Aplicaciones y ábrela desde ahí.
+1. Abre **Curlbrew** desde `/Applications`, no desde la carpeta de descargas. Si macOS la abrió en cuarentena, muévela a Aplicaciones y ábrela desde ahí.
 2. Al arrancar consulta la última release. También está **Buscar actualización** en la barra y en Resumen.
 3. Si hay versión nueva, el botón pasa a **Actualizar a X.Y.Z**. La hoja muestra la URL del zip.
 4. **Actualizar** descarga ese zip, comprueba que dentro va `Curlbrew.app` con identificador `app.curlbrew.macos` y esa versión, en arm64, reemplaza la copia abierta y la vuelve a abrir.
@@ -54,12 +54,7 @@ git push origin v0.2.0
 
 El tag tiene que ser `v` y tres números (`v0.2.0`). `v0.2` o `v0.2.0-beta` no disparan el workflow ni las ofrece la app. El número tiene que ser mayor que el de las copias ya instaladas: `0.10.0` es mayor que `0.9.0`.
 
-Eso corre `.github/workflows/release.yml` en un Mac arm64. El workflow compila con `CURLBREW_VERSION` igual al tag, firma la app y publica dos archivos en la release:
-
-| Archivo | Para qué |
-| --- | --- |
-| `Curlbrew-0.2.0.zip` | Lo descarga el botón **Actualizar** |
-| `Curlbrew-0.2.0.dmg` | Primera instalación: se arrastra a Aplicaciones |
+Eso corre `.github/workflows/release.yml` en un Mac arm64. El workflow compila con `CURLBREW_VERSION` igual al tag, firma la app y publica la release, incluido el `Curlbrew-0.2.0.zip` que descarga el botón **Actualizar**.
 
 La versión del bundle sale del tag. En local, sin tag, `make app` sigue dejando `0.1.0`. Para probar otro número: `CURLBREW_VERSION=0.2.0 make app`.
 
@@ -73,18 +68,11 @@ cd curl-brew
 
 make test     # pruebas
 make app      # compila y firma Curlbrew.app
-make dmg      # empaqueta dist/Curlbrew-<versión>.dmg
 
 open Curlbrew.app
 ```
 
 `make` compila en `/tmp/curlbrew-build`. La carpeta del proyecto puede estar en un volumen que marca los directorios con metadatos de Finder, y `codesign` rechaza el bundle de tests si `.build` se queda ahí.
-
-`make dmg` necesita [create-dmg](https://github.com/create-dmg/create-dmg):
-
-```bash
-brew install create-dmg
-```
 
 La interfaz es SwiftUI, pero sin `@State` ni `@Bindable`: las Command Line Tools no incluyen el plugin `SwiftUIMacros`. El estado vive en `AppModel`.
 
@@ -130,9 +118,9 @@ Sources/
   CellarProviders/   Homebrew, npm, pnpm, bun y el catálogo de instaladores curl
   CurlbrewApp/       interfaz SwiftUI y AppModel
 Tests/               pruebas de Core y Providers, con fixtures reales de cada CLI
-Scripts/             package-app.sh (bundle + firma) y package-dmg.sh (DMG)
-.github/workflows/   release.yml publica zip y DMG al etiquetar vX.Y.Z
-Resources/           icono y fondo del DMG
+Scripts/             package-app.sh (bundle + firma)
+.github/workflows/   release.yml publica una release al etiquetar vX.Y.Z
+Resources/           icono
 docs/                plan de implementación
 ```
 
@@ -141,12 +129,6 @@ docs/                plan de implementación
 | `CellarCore` | `InstalledPackage`, `PackageUpgrade`, `PackageOrdering`, `AppUpdateFeed`, `BinaryLocator`, `ProcessCommandRunner` |
 | `CellarProviders` | un `PackageProvider` por gestor; `CurlCatalog` para los instaladores |
 | `CurlbrewApp` | `RootView` (sidebar), `ProviderBrowser`, `InstallerBrowser`, `AppModel` (estado y operaciones) |
-
-## El DMG
-
-`make dmg` compila, firma y empaqueta `dist/Curlbrew-<versión>.dmg` con [create-dmg](https://github.com/create-dmg/create-dmg). El DMG abre una ventana con el icono de la app y un enlace a `/Applications`: se arrastra uno sobre otro y queda instalada. El fondo es `Resources/dmg-background.png` (1320×840, o sea 660×420 a 2x).
-
-Para que abra sin el aviso de Gatekeeper haría falta un certificado Developer ID y notarización con `notarytool`.
 
 ## Créditos
 
