@@ -1,0 +1,2 @@
+[31mError:[0m Refusing to load cask nikitabobko/tap/aerospace from untrusted tap nikitabobko/tap.
+Run `brew trust --cask nikitabobko/tap/aerospace` or `brew trust nikitabobko/tap` to trust it.

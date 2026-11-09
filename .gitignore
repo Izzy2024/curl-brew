@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+Curlbrew.app/
+dist/
+DerivedData/
+.DS_Store
+
+# Notas internas de agentes (rutas locales, no sirven fuera de esta máquina)
+docs/agents/
