@@ -151,21 +151,40 @@ struct ConfirmSheet: View {
     var onCancel: () -> Void
     var onRun: () -> Void
 
+    private var script: String {
+        pending.commands.map(\.display).joined(separator: "\n")
+    }
+
+    private var several: Bool { pending.commands.count > 1 }
+
+    private var commandText: some View {
+        Text(script)
+            .font(.system(several ? .body : .title3, design: .monospaced))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(pending.title).font(.title2)
-            Text(pending.command.summary)
+            Text(several ? "\(pending.commands.count) paquetes, cada uno con su comando" : (pending.commands.first?.summary ?? ""))
                 .foregroundStyle(.secondary)
-            Text("Se ejecutará este comando")
+            Text(several ? "Se ejecutarán estos comandos, uno por uno" : "Se ejecutará este comando")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text(pending.command.display)
-                .font(.system(.title3, design: .monospaced))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            Button("Copiar comando") { copyCommand(pending.command.display) }
+            Group {
+                if several {
+                    ScrollView {
+                        commandText
+                    }
+                    .frame(maxHeight: 280)
+                } else {
+                    commandText
+                }
+            }
+            Button(several ? "Copiar comandos" : "Copiar comando") { copyCommand(script) }
                 .controlSize(.small)
             if let warning = pending.warning {
                 Label(warning, systemImage: "exclamationmark.triangle")

@@ -20,8 +20,20 @@ struct LogLine: Identifiable, Equatable {
 struct PendingOperation: Identifiable {
     let id = UUID()
     var title: String
-    var command: PlannedCommand
+    var commands: [PlannedCommand]
     var warning: String?
+
+    init(title: String, command: PlannedCommand, warning: String?) {
+        self.title = title
+        self.commands = [command]
+        self.warning = warning
+    }
+
+    init(title: String, commands: [PlannedCommand], warning: String?) {
+        self.title = title
+        self.commands = commands
+        self.warning = warning
+    }
 }
 
 @MainActor
@@ -194,7 +206,7 @@ final class AppModel {
     func proposeUpgradeAll(_ providerID: ProviderID) {
         let packages = upgradesByID.values
             .filter { $0.provider == providerID }
-            .sorted { $0.name < $1.name }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             .map {
                 InstalledPackage(
                     name: $0.name,
@@ -203,13 +215,21 @@ final class AppModel {
                     kind: $0.kind
                 )
             }
-        guard let command = provider(providerID)?.planUpgradeList(packages) else {
+        let commands = provider(providerID)?.planUpgradeCommands(packages) ?? []
+        guard !commands.isEmpty else {
             errorMessage = packages.isEmpty
                 ? "No hay actualizaciones de \(displayName(for: providerID))"
                 : "No se puede actualizar \(displayName(for: providerID))"
             return
         }
-        pending = PendingOperation(title: "Actualizar \(displayName(for: providerID))", command: command, warning: nil)
+        let warning = commands.count > 1
+            ? "Si un paquete falla, se continúa con el siguiente."
+            : nil
+        pending = PendingOperation(
+            title: "Actualizar \(displayName(for: providerID))",
+            commands: commands,
+            warning: warning
+        )
     }
 
     func proposeScript(_ installer: CurlInstaller) {
@@ -244,13 +264,13 @@ final class AppModel {
     }
 
     func startExecute() {
-        guard let pending else { return }
-        let command = pending.command
+        guard let pending, !pending.commands.isEmpty else { return }
+        let commands = pending.commands
         self.pending = nil
         operation?.cancel()
         generation += 1
         let token = generation
-        operation = Task { await self.execute(command, token: token) }
+        operation = Task { await self.execute(commands, token: token) }
     }
 
     func select(_ package: InstalledPackage?) {
@@ -314,21 +334,55 @@ final class AppModel {
         upgradesByID = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
-    private func execute(_ command: PlannedCommand, token: Int) async {
+    private func execute(_ commands: [PlannedCommand], token: Int) async {
         isBusy = true
         dismissNotice()
+        var steps: [UpgradeStep] = []
+        for (index, command) in commands.enumerated() {
+            if Task.isCancelled || token != generation { break }
+            guard let step = await run(command) else { break }
+            if Task.isCancelled || token != generation { break }
+            steps.append(step)
+            if step.failed, index + 1 < commands.count {
+                appendLog("ese paquete no se actualizó; se sigue con el siguiente", error: true)
+            }
+        }
+        isBusy = false
+        guard token == generation, !Task.isCancelled else { return }
+        if !steps.isEmpty {
+            let report = UpgradeBatch.report(steps)
+            showNotice(report.notice, isError: !report.failedSummaries.isEmpty)
+            if commands.count > 1, !report.failedSummaries.isEmpty {
+                appendLog("sin actualizar: \(report.failedSummaries.joined(separator: ", "))", error: true)
+            }
+            if let hint = report.cacheHint {
+                appendLog(hint, error: true)
+            }
+        }
+        await loadInventories(token: token)
+        guard token == generation, !Task.isCancelled else { return }
+        isCheckingUpgrades = true
+        await loadUpgrades(token: token)
+        if token == generation { isCheckingUpgrades = false }
+    }
+
+    /// `nil` si el comando no llegó a terminar (cancelado a mitad).
+    private func run(_ command: PlannedCommand) async -> UpgradeStep? {
         appendLog("$ \(command.display)", error: false)
         appendLog(command.summary, error: false)
         var failed = false
         var sawOutcome = false
+        var output = ""
         for await event in stream(command) {
             if Task.isCancelled { break }
             switch event {
             case .started:
                 break
             case .stdout(let text):
+                output += text
                 appendLog(text, error: false)
             case .stderr(let text):
+                output += text
                 appendLog(text, error: true)
             case .finished(let code):
                 sawOutcome = true
@@ -337,19 +391,12 @@ final class AppModel {
             case .failed(let message):
                 sawOutcome = true
                 failed = true
+                output += message
                 appendLog(message, error: true)
             }
         }
-        isBusy = false
-        guard token == generation, !Task.isCancelled else { return }
-        if sawOutcome {
-            showNotice(failed ? "Falló · \(command.summary)" : "Listo · \(command.summary)", isError: failed)
-        }
-        await loadInventories(token: token)
-        guard token == generation, !Task.isCancelled else { return }
-        isCheckingUpgrades = true
-        await loadUpgrades(token: token)
-        if token == generation { isCheckingUpgrades = false }
+        guard sawOutcome else { return nil }
+        return UpgradeStep(summary: command.summary, failed: failed, output: output)
     }
 
     private func loadDetails(_ package: InstalledPackage) async {

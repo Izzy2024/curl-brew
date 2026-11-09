@@ -192,9 +192,12 @@ public protocol PackageProvider: Sendable {
     func planInstall(_ package: PackageRef) -> PlannedCommand?
     func planUninstall(_ package: InstalledPackage) -> PlannedCommand?
     func planUpgrade(_ package: InstalledPackage?) -> PlannedCommand?
-    /// Actualiza los paquetes indicados. El valor por defecto ignora la lista
-    /// y usa `planUpgrade(nil)`, que en Homebrew es `brew upgrade`.
+    /// Un solo comando para toda la lista. En npm eso es una transacción:
+    /// si un paquete falla, npm no sigue con los demás.
     func planUpgradeList(_ packages: [InstalledPackage]) -> PlannedCommand?
+    /// Un comando por paquete, en orden de nombre. “Actualizar todo” usa esto
+    /// para que un error no cancele el resto.
+    func planUpgradeCommands(_ packages: [InstalledPackage]) -> [PlannedCommand]
 }
 
 extension PackageProvider {
@@ -206,5 +209,11 @@ extension PackageProvider {
 
     public func planUpgradeList(_ packages: [InstalledPackage]) -> PlannedCommand? {
         planUpgrade(nil)
+    }
+
+    public func planUpgradeCommands(_ packages: [InstalledPackage]) -> [PlannedCommand] {
+        packages
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .compactMap { planUpgrade($0) }
     }
 }

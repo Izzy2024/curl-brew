@@ -46,6 +46,59 @@ public enum OperationEvent: Sendable, Equatable {
     case failed(String)
 }
 
+public struct UpgradeStep: Equatable, Sendable {
+    public var summary: String
+    public var failed: Bool
+    public var output: String
+
+    public init(summary: String, failed: Bool, output: String) {
+        self.summary = summary
+        self.failed = failed
+        self.output = output
+    }
+}
+
+public struct UpgradeBatchReport: Equatable, Sendable {
+    public var succeededSummaries: [String]
+    public var failedSummaries: [String]
+    public var cacheHint: String?
+
+    public var notice: String {
+        let total = succeededSummaries.count + failedSummaries.count
+        if total == 0 { return "" }
+        if failedSummaries.isEmpty {
+            if let only = succeededSummaries.first, succeededSummaries.count == 1 {
+                return "Listo · \(only)"
+            }
+            return "Listo · \(succeededSummaries.count) actualizaciones"
+        }
+        if succeededSummaries.isEmpty {
+            if failedSummaries.count == 1 { return "Falló · \(failedSummaries[0])" }
+            return "Fallaron las \(failedSummaries.count) actualizaciones"
+        }
+        return "Actualizadas \(succeededSummaries.count) de \(total). Las demás siguen pendientes."
+    }
+}
+
+public enum UpgradeBatch {
+    public static let cacheHint = "npm no puede escribir en ~/.npm (EACCES). Hay entradas de la caché que son de root, a menudo por un sudo npm. Los demás paquetes se intentan igual. En Terminal: sudo chown -R \"$(whoami)\" ~/.npm"
+
+    public static func report(_ steps: [UpgradeStep]) -> UpgradeBatchReport {
+        UpgradeBatchReport(
+            succeededSummaries: steps.filter { !$0.failed }.map(\.summary),
+            failedSummaries: steps.filter(\.failed).map(\.summary),
+            cacheHint: steps.contains { $0.failed && isCachePermission($0.output) } ? cacheHint : nil
+        )
+    }
+
+    /// EACCES sobre la caché de npm, no un permiso cualquiera de un paquete.
+    public static func isCachePermission(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        guard lower.contains("eacces") else { return false }
+        return lower.contains("_cacache") || lower.contains(".npm")
+    }
+}
+
 public struct CommandResult: Sendable, Equatable {
     public var stdout: String
     public var stderr: String

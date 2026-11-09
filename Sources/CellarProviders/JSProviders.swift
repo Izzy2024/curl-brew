@@ -61,7 +61,10 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
     /// `npm update -g` reconstruye el árbol global entero. Si cualquier otro
     /// paquete tiene una dependencia `workspace:*` (un enlace de monorepo),
     /// npm 11 aborta con EUNSUPPORTEDPROTOCOL y no actualiza nada.
-    /// `npm install -g <nombre>@latest` solo reinstala los paquetes pedidos.
+    /// `npm install -g <nombre>@latest` solo reinstala el paquete pedido.
+    /// Varios nombres en el mismo `install` siguen siendo una transacción:
+    /// un EACCES en la caché aborta el proceso y el resto no se instala.
+    /// “Actualizar todo” usa `planUpgradeCommands`, un install por paquete.
     public func planUpgradeList(_ packages: [InstalledPackage]) -> PlannedCommand? {
         let names = packages.map(\.name).filter(PackageName.isValid).sorted()
         guard !names.isEmpty, let npm = locator.locate("npm") else { return nil }

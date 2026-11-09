@@ -64,6 +64,31 @@ import Testing
     #expect(result.failure == nil)
 }
 
+@Test func batchKeepsGoingAfterOneFailure() {
+    let report = UpgradeBatch.report([
+        UpgradeStep(summary: "Actualizar wget con Homebrew", failed: false, output: ""),
+        UpgradeStep(
+            summary: "Actualizar left-pad con npm",
+            failed: true,
+            output: "npm error path /Users/admin/.npm/_cacache/index-v5/32/51/abc\nnpm error code EACCES"
+        ),
+        UpgradeStep(summary: "Actualizar copilot con npm", failed: false, output: ""),
+    ])
+    #expect(report.succeededSummaries.count == 2)
+    #expect(report.failedSummaries == ["Actualizar left-pad con npm"])
+    #expect(report.notice == "Actualizadas 2 de 3. Las demás siguen pendientes.")
+    #expect(report.cacheHint == UpgradeBatch.cacheHint)
+}
+
+@Test func otherPermissionErrorsAreNotTheNpmCache() {
+    #expect(!UpgradeBatch.isCachePermission("npm error code EACCES\nnpm error path /usr/local/lib/node_modules"))
+    let report = UpgradeBatch.report([
+        UpgradeStep(summary: "Actualizar uno con npm", failed: true, output: "network timeout"),
+    ])
+    #expect(report.notice == "Falló · Actualizar uno con npm")
+    #expect(report.cacheHint == nil)
+}
+
 @Test func missingExecutableFailsBeforeLaunch() async {
     let result = await ProcessCommandRunner().collect(PlannedCommand(
         argv: ["/tmp/curlbrew-missing-\(UUID().uuidString)"],

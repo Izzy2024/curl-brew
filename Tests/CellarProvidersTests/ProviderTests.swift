@@ -22,6 +22,14 @@ import Testing
     #expect(install?.argv == ["/opt/homebrew/bin/brew", "install", "--formula", "--", "wget"])
     #expect(install?.workingDirectory == "/private/tmp")
     #expect(provider.planInstall(PackageRef(name: "--force", kind: .formula)) == nil)
+    let batch = provider.planUpgradeCommands([
+        InstalledPackage(name: "wget", version: "1.21.4", provider: .homebrew, kind: .formula),
+        InstalledPackage(name: "firefox", version: "120", provider: .homebrew, kind: .cask),
+    ])
+    #expect(batch.map(\.argv) == [
+        ["/opt/homebrew/bin/brew", "upgrade", "--cask", "--", "firefox"],
+        ["/opt/homebrew/bin/brew", "upgrade", "--formula", "--", "wget"],
+    ])
     #expect(!runner.ran.contains { $0.first == "/bin/zsh" || $0.first == "zsh" })
 }
 
@@ -99,6 +107,14 @@ import Testing
         InstalledPackage(name: "@github/copilot", version: "1.0.85", provider: .npm, kind: .globalPackage),
     ])
     #expect(all?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "@github/copilot@latest", "left-pad@latest"])
+    let each = provider.planUpgradeCommands([
+        InstalledPackage(name: "left-pad", version: "1.0.0", provider: .npm, kind: .globalPackage),
+        InstalledPackage(name: "@github/copilot", version: "1.0.85", provider: .npm, kind: .globalPackage),
+    ])
+    #expect(each.map(\.argv) == [
+        ["/opt/homebrew/bin/npm", "install", "--global", "@github/copilot@latest"],
+        ["/opt/homebrew/bin/npm", "install", "--global", "left-pad@latest"],
+    ])
     #expect(provider.planUpgrade(nil) == nil)
     #expect(provider.planUpgradeList([]) == nil)
     #expect(provider.planUpgrade(InstalledPackage(name: "--force", version: "1", provider: .npm, kind: .globalPackage)) == nil)
