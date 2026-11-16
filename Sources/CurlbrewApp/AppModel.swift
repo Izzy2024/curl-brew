@@ -15,6 +15,7 @@ struct LogLine: Identifiable, Equatable {
     let id = UUID()
     var text: String
     var isError: Bool
+    var isProgress: Bool = false
 }
 
 struct PendingOperation: Identifiable {
@@ -48,6 +49,8 @@ final class AppModel {
     var sort: PackageSort = .updatesFirst
     var kindFilter: PackageKindFilter = .all
     var logLines: [LogLine] = []
+    var activeProgress: DownloadProgress?
+    var activeStepText: String?
     var isBusy = false
     var isCheckingUpgrades = false
     var errorMessage: String?
@@ -155,6 +158,8 @@ final class AppModel {
 
     func startReload() {
         operation?.cancel()
+        activeProgress = nil
+        activeStepText = nil
         generation += 1
         let token = generation
         operation = Task { await self.reload(token: token) }
@@ -162,6 +167,8 @@ final class AppModel {
 
     func cancel() {
         operation?.cancel()
+        activeProgress = nil
+        activeStepText = nil
         appendLog("detenido", error: true)
     }
 
@@ -345,9 +352,16 @@ final class AppModel {
     private func execute(_ commands: [PlannedCommand], token: Int) async {
         isBusy = true
         dismissNotice()
+        defer {
+            if token == generation {
+                activeProgress = nil
+                activeStepText = nil
+            }
+        }
         var steps: [UpgradeStep] = []
         for (index, command) in commands.enumerated() {
             if Task.isCancelled || token != generation { break }
+            activeStepText = commands.count > 1 ? "Paso \(index + 1) de \(commands.count)" : nil
             guard let step = await run(command) else { break }
             if Task.isCancelled || token != generation { break }
             steps.append(step)
@@ -355,7 +369,11 @@ final class AppModel {
                 appendLog("ese paquete no se actualizó; se sigue con el siguiente", error: true)
             }
         }
-        isBusy = false
+        if token == generation {
+            activeProgress = nil
+            activeStepText = nil
+            isBusy = false
+        }
         guard token == generation, !Task.isCancelled else { return }
         if !steps.isEmpty {
             let report = UpgradeBatch.report(steps)
@@ -378,6 +396,7 @@ final class AppModel {
     private func run(_ command: PlannedCommand) async -> UpgradeStep? {
         appendLog("$ \(command.display)", error: false)
         appendLog(command.summary, error: false)
+        activeProgress = DownloadProgress(label: command.summary)
         var failed = false
         var sawOutcome = false
         var output = ""
@@ -388,10 +407,10 @@ final class AppModel {
                 break
             case .stdout(let text):
                 output += text
-                appendLog(text, error: false)
+                ingestOutput(text, isStderr: false)
             case .stderr(let text):
                 output += text
-                appendLog(text, error: true)
+                ingestOutput(text, isStderr: true)
             case .finished(let code):
                 sawOutcome = true
                 failed = code != 0
@@ -435,13 +454,64 @@ final class AppModel {
         return name == "zsh" || name == "bash" || name == "sh"
     }
 
-    private func appendLog(_ text: String, error: Bool) {
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
-            logLines.append(LogLine(text: String(line), isError: error))
+    private func ingestOutput(_ text: String, isStderr: Bool) {
+        for segment in ProgressParser.splitSegments(text) {
+            if let parsed = ProgressParser.parse(segment) {
+                if parsed.fraction != nil || parsed.transferredText != nil {
+                    activeProgress = parsed
+                } else if var current = activeProgress, !current.isFinished {
+                    current.label = parsed.label
+                    activeProgress = current
+                } else {
+                    activeProgress = parsed
+                }
+
+                if !parsed.cliBarLine.isEmpty {
+                    upsertProgressLog(parsed.cliBarLine, finalize: parsed.isFinished)
+                } else {
+                    appendLogLine(segment, error: false)
+                }
+            } else {
+                let isError = isStderr && !ProgressParser.isNonErrorStderr(segment)
+                appendLogLine(segment, error: isError)
+            }
         }
+    }
+
+    private func upsertProgressLog(_ text: String, finalize: Bool) {
+        if let lastIndex = logLines.indices.last, logLines[lastIndex].isProgress {
+            logLines[lastIndex].text = text
+            logLines[lastIndex].isError = false
+            logLines[lastIndex].isProgress = !finalize
+        } else {
+            logLines.append(LogLine(text: text, isError: false, isProgress: !finalize))
+            if logLines.count > 2000 {
+                logLines.removeFirst(logLines.count - 2000)
+            }
+        }
+    }
+
+    private func appendLogLine(_ line: String, error: Bool) {
+        logLines.append(LogLine(text: line, isError: error))
         if logLines.count > 2000 {
             logLines.removeFirst(logLines.count - 2000)
         }
+    }
+
+    private func appendLog(_ text: String, error: Bool) {
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            appendLogLine(String(line), error: error)
+        }
+    }
+
+    var logText: String {
+        logLines.map(\.text).joined(separator: "\n")
+    }
+
+    func copyLog() {
+        guard !logLines.isEmpty else { return }
+        copyCommand(logText)
+        showNotice("Registro copiado al portapapeles", isError: false)
     }
 
     func clearLog() { logLines.removeAll() }

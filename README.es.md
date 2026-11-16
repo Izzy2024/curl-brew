@@ -108,7 +108,7 @@ Nada se ejecuta a ciegas:
 - Los comandos se arman como `argv`, sin `zsh -c`. Un nombre de paquete nunca se interpreta como shell.
 - Los instaladores `curl` pasan por `AllowlistedShellRunner`, que solo acepta las líneas exactas de `CurlCatalog`.
 - Antes de ejecutar, una hoja de confirmación muestra el comando completo, con opción de copiarlo.
-- Las operaciones se pueden **detener**; el registro queda visible en la parte inferior.
+- Las operaciones se pueden **detener**; el registro inferior muestra una barra de progreso en vivo (en el registro y en la interfaz) junto con botones para **Copiar** y **Limpiar**.
 
 ## Estructura
 

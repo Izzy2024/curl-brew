@@ -6,13 +6,15 @@ enum ToolCommand {
         binary: String,
         arguments: [String],
         summary: String,
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        allocatePTY: Bool = false
     ) -> PlannedCommand {
         PlannedCommand(
             argv: [binary] + arguments,
             summary: summary,
             environment: environment,
-            workingDirectory: CommandDefaults.isolatedDirectory
+            workingDirectory: CommandDefaults.isolatedDirectory,
+            allocatePTY: allocatePTY
         )
     }
 }

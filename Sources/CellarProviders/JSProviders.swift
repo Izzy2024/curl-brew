@@ -46,7 +46,12 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
     }
 
     public func planInstall(_ package: PackageRef) -> PlannedCommand? {
-        plan(package.name, arguments: ["install", "--global", package.name], summary: "Instalar \(package.name) con npm")
+        plan(
+            package.name,
+            arguments: ["install", "--global", package.name],
+            summary: "Instalar \(package.name) con npm",
+            environment: ["npm_config_loglevel": "http", "NO_COLOR": "1"]
+        )
     }
 
     public func planUninstall(_ package: InstalledPackage) -> PlannedCommand? {
@@ -74,7 +79,8 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
         return ToolCommand.make(
             binary: npm,
             arguments: ["install", "--global"] + names.map { "\($0)@latest" },
-            summary: summary
+            summary: summary,
+            environment: ["npm_config_loglevel": "http", "NO_COLOR": "1"]
         )
     }
 
@@ -85,9 +91,14 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
         return path
     }
 
-    private func plan(_ name: String, arguments: [String], summary: String) -> PlannedCommand? {
+    private func plan(
+        _ name: String,
+        arguments: [String],
+        summary: String,
+        environment: [String: String] = [:]
+    ) -> PlannedCommand? {
         guard PackageName.isValid(name), let npm = locator.locate("npm") else { return nil }
-        return ToolCommand.make(binary: npm, arguments: arguments, summary: summary)
+        return ToolCommand.make(binary: npm, arguments: arguments, summary: summary, environment: environment)
     }
 
     private func listed(_ npm: String, arguments: [String], summary: String) async throws -> [InstalledPackage] {

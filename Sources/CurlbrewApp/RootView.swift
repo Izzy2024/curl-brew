@@ -29,10 +29,15 @@ struct RootView: View {
         }
         .animation(.snappy(duration: 0.32), value: model.notice)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            LogView(lines: model.logLines, busy: model.isBusy || model.isCheckingUpgrades || model.isUpdatingApp) {
-                model.clearLog()
-            }
-            .frame(height: 128)
+            LogView(
+                lines: model.logLines,
+                busy: model.isBusy || model.isCheckingUpgrades || model.isUpdatingApp,
+                progress: model.activeProgress,
+                stepText: model.activeStepText,
+                copy: { model.copyLog() },
+                clear: { model.clearLog() }
+            )
+            .frame(height: model.activeProgress == nil ? 128 : 158)
         }
         .toolbar {
             ToolbarItem {
@@ -160,17 +165,60 @@ struct RootView: View {
 struct LogView: View {
     var lines: [LogLine]
     var busy: Bool
+    var progress: DownloadProgress?
+    var stepText: String?
+    var copy: () -> Void
     var clear: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 8) {
                 Label("Registro", systemImage: "text.alignleft")
                     .font(.headline)
                 if busy { ProgressView().controlSize(.small) }
+                if let stepText {
+                    Text(stepText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
+                Button("Copiar", action: copy)
+                    .controlSize(.small)
+                    .disabled(lines.isEmpty)
                 Button("Limpiar", action: clear)
                     .controlSize(.small)
+                    .disabled(lines.isEmpty)
+            }
+            if let progress {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(progress.label)
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Spacer()
+                        if let transferred = progress.transferredText {
+                            Text(transferred)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        if let remaining = progress.remainingText {
+                            Text(remaining)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        if let percent = progress.percentText {
+                            Text(percent)
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                        }
+                    }
+                    if let fraction = progress.fraction {
+                        ProgressView(value: fraction, total: 1.0)
+                            .progressViewStyle(.linear)
+                    } else {
+                        ProgressView()
+                            .progressViewStyle(.linear)
+                    }
+                }
             }
             ScrollViewReader { proxy in
                 ScrollView {

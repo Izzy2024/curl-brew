@@ -234,3 +234,101 @@ private func upgrade(_ package: InstalledPackage, to available: String = "2.0.0"
     #expect(VersionText.compare("2.0.0", "2.0.0") == .orderedSame)
     #expect(VersionText.compare("1.2.3-beta", "1.2.3") == .orderedDescending)
 }
+
+@Test func parsesHomebrewDownloadQueueProgressFrames() throws {
+    let active = try #require(ProgressParser.parse("⠲ Bottle c-ares (1.34.9)          ##                Downloading  41.0KB/312.6KB"))
+    #expect(active.label == "Bottle c-ares (1.34.9)")
+    #expect(active.percentText == "13%")
+    #expect(active.transferredText == "41.0 KB / 312.6 KB")
+    #expect(active.remainingText == "faltan 271.6 KB")
+    #expect(!active.isFinished)
+    #expect(active.cliBarLine.contains("13%"))
+    #expect(active.cliBarLine.contains("faltan 271.6 KB"))
+    let activeFraction = try #require(active.fraction)
+    #expect(abs(activeFraction - (41.0 / 312.6)) < 0.001)
+
+    let unknownTotal = try #require(ProgressParser.parse("⠖ Bottle Manifest c-ares (1.34.9)                   Downloading   8.2KB/-------"))
+    #expect(unknownTotal.label == "Bottle Manifest c-ares (1.34.9)")
+    #expect(unknownTotal.fraction == nil)
+    #expect(unknownTotal.percentText == nil)
+    #expect(unknownTotal.remainingText == nil)
+    #expect(unknownTotal.transferredText == "8.2 KB")
+    #expect(!unknownTotal.isFinished)
+    #expect(unknownTotal.cliBarLine.contains("8.2 KB"))
+
+    let done = try #require(ProgressParser.parse("✔︎ Bottle c-ares (1.34.9)                            Downloaded  312.6KB/312.6KB"))
+    #expect(done.label == "Bottle c-ares (1.34.9)")
+    #expect(done.fraction == 1.0)
+    #expect(done.percentText == "100%")
+    #expect(done.transferredText == "312.6 KB / 312.6 KB")
+    #expect(done.remainingText == nil)
+    #expect(done.isFinished)
+    #expect(done.cliBarLine.contains("100%"))
+}
+
+@Test func parsesCurlProgressBarAndMeterLines() throws {
+    let bar = try #require(ProgressParser.parse("###################################################                       72.1%"))
+    #expect(bar.percentText == "72%")
+    #expect(bar.remainingText == "falta 28%")
+    #expect(!bar.isFinished)
+    #expect(bar.cliBarLine.contains("72%"))
+    let barFraction = try #require(bar.fraction)
+    #expect(abs(barFraction - 0.721) < 0.001)
+
+    let meter = try #require(ProgressParser.parse(" 45  250M   45  112M    0     0  12.5M      0  0:00:20  0:00:09  0:00:11 13.1M"))
+    #expect(meter.percentText == "45%")
+    #expect(meter.fraction == 0.45)
+    #expect(!meter.isFinished)
+    #expect(meter.transferredText != nil)
+    #expect(meter.remainingText?.contains("0:00:11") == true)
+    #expect(meter.cliBarLine.contains("45%"))
+}
+
+@Test func parsesPnpmDownloadAndProgressLines() throws {
+    let dl = try #require(ProgressParser.parse("Downloading typescript@5.6.2: 12.34 MB/56.78 MB"))
+    #expect(dl.label == "typescript@5.6.2")
+    #expect(dl.percentText == "22%")
+    #expect(dl.transferredText == "12.3 MB / 56.8 MB")
+    #expect(dl.remainingText == "faltan 44.4 MB")
+    #expect(!dl.isFinished)
+    #expect(dl.cliBarLine.contains("22%"))
+
+    let counts = try #require(ProgressParser.parse("Progress: resolved 20, reused 5, downloaded 8, added 0"))
+    #expect(counts.fraction == 0.65)
+    #expect(counts.percentText == "65%")
+    #expect(counts.transferredText == "13 / 20 paquetes")
+    #expect(counts.remainingText == "faltan 7")
+    #expect(!counts.isFinished)
+    #expect(counts.cliBarLine.contains("65%"))
+}
+
+@Test func stripsAnsiCursorControlAndSplitsCarriageReturnFrames() {
+    let raw = "\u{001B}[?2026h\u{001B}[34m⠋\u{001B}[0m\u{001B}[K\r\u{001B}[34m⠲\u{001B}[0m Bottle c-ares (1.34.9) Downloading 41.0KB/312.6KB\u{001B}[K\u{001B}[1F\u{001B}[?2026l"
+    let stripped = ProgressParser.stripTerminalSequences(raw)
+    #expect(!stripped.contains("\u{001B}"))
+    #expect(!stripped.contains("[?2026h"))
+    #expect(!stripped.contains("[1F"))
+
+    let segments = ProgressParser.splitSegments(raw)
+    #expect(segments == ["⠲ Bottle c-ares (1.34.9) Downloading 41.0KB/312.6KB"])
+}
+
+@Test func distinguishesNonErrorStderrProgressFromRealErrors() {
+    #expect(ProgressParser.isNonErrorStderr("npm http fetch GET 200 https://registry.npmjs.org/typescript/-/typescript-5.6.2.tgz 300ms"))
+    #expect(ProgressParser.isNonErrorStderr("  % Total    % Received % Xferd  Average Speed"))
+    #expect(ProgressParser.isNonErrorStderr("##O#-#"))
+    #expect(ProgressParser.isNonErrorStderr("########################################## 72.1%"))
+    #expect(!ProgressParser.isNonErrorStderr("npm error code EACCES"))
+    #expect(!ProgressParser.isNonErrorStderr("Error: Formula not found"))
+}
+
+@Test func runsCommandWithAllocatedPTY() async {
+    let result = await ProcessCommandRunner().collect(PlannedCommand(
+        argv: ["/bin/echo", "pty-ok"],
+        summary: "pty echo",
+        allocatePTY: true
+    ))
+    #expect(result.exitCode == 0)
+    #expect(result.failure == nil)
+    #expect(result.stdout.contains("pty-ok"))
+}

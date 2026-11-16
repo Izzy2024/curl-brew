@@ -76,7 +76,8 @@ public struct HomebrewProvider<Locator: Locating, Runner: CommandRunning>: Packa
             binary: brew,
             arguments: ["install", flag, "--", package.name],
             summary: "Instalar \(package.name) con Homebrew",
-            environment: BrewEnv.mutate
+            environment: BrewEnv.mutate,
+            allocatePTY: true
         )
     }
 
@@ -100,14 +101,16 @@ public struct HomebrewProvider<Locator: Locating, Runner: CommandRunning>: Packa
                 binary: brew,
                 arguments: ["upgrade", flag, "--", package.name],
                 summary: "Actualizar \(package.name) con Homebrew",
-                environment: BrewEnv.mutate
+                environment: BrewEnv.mutate,
+                allocatePTY: true
             )
         }
         return ToolCommand.make(
             binary: brew,
             arguments: ["upgrade"],
             summary: "Actualizar fórmulas y casks desactualizados",
-            environment: BrewEnv.mutate
+            environment: BrewEnv.mutate,
+            allocatePTY: true
         )
     }
 
@@ -143,7 +146,14 @@ public struct HomebrewProvider<Locator: Locating, Runner: CommandRunning>: Packa
 
 enum BrewEnv {
     static let read = ["HOMEBREW_NO_AUTO_UPDATE": "1", "HOMEBREW_COLOR": "0", "HOMEBREW_NO_ENV_HINTS": "1"]
-    static let mutate = ["HOMEBREW_COLOR": "0", "HOMEBREW_NO_ENV_HINTS": "1", "CI": "1"]
+    static let mutate = [
+        "HOMEBREW_COLOR": "0",
+        "HOMEBREW_NO_COLOR": "1",
+        "NO_COLOR": "1",
+        "TERM": "xterm-256color",
+        "HOMEBREW_NO_ENV_HINTS": "1",
+        "CI": "1",
+    ]
 }
 
 enum HomebrewList {

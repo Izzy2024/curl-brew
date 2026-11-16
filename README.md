@@ -108,7 +108,7 @@ Nothing runs blindly:
 - Commands are built as `argv`, with no `zsh -c`. A package name is never interpreted as shell.
 - `curl` installers go through `AllowlistedShellRunner`, which only accepts the exact lines in `CurlCatalog`.
 - Before running, a confirmation sheet shows the full command, with an option to copy it.
-- Operations can be **stopped**; the log stays visible at the bottom.
+- Operations can be **stopped**; the bottom log shows live download progress bars (in both the log and UI) and includes **Copy** and **Clear** actions.
 
 ## Layout
 

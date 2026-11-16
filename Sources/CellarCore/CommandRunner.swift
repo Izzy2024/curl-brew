@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum CommandDefaults {
@@ -11,17 +12,20 @@ public struct PlannedCommand: Sendable, Equatable {
     public var summary: String
     public var environment: [String: String]
     public var workingDirectory: String?
+    public var allocatePTY: Bool
 
     public init(
         argv: [String],
         summary: String,
         environment: [String: String] = [:],
-        workingDirectory: String? = nil
+        workingDirectory: String? = nil,
+        allocatePTY: Bool = false
     ) {
         self.argv = argv
         self.summary = summary
         self.environment = environment
         self.workingDirectory = workingDirectory
+        self.allocatePTY = allocatePTY
     }
 
     public var display: String {
@@ -198,23 +202,56 @@ public struct ProcessCommandRunner: CommandRunning {
            FileManager.default.fileExists(atPath: directory) {
             process.currentDirectoryURL = URL(fileURLWithPath: directory, isDirectory: true)
         }
-        let stdout = Pipe()
         let stderr = Pipe()
-        process.standardOutput = stdout
+        var stdoutPipe: Pipe?
+        var ptyMasterFD: Int32 = -1
+        var ptySlaveFD: Int32 = -1
+        var ptySlaveHandle: FileHandle?
+
+        if command.allocatePTY {
+            var win = winsize(ws_row: 40, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
+            if openpty(&ptyMasterFD, &ptySlaveFD, nil, nil, &win) == 0 {
+                let handle = FileHandle(fileDescriptor: ptySlaveFD, closeOnDealloc: false)
+                ptySlaveHandle = handle
+                process.standardOutput = handle
+            } else {
+                ptyMasterFD = -1
+                ptySlaveFD = -1
+            }
+        }
+        if ptyMasterFD == -1 {
+            let pipe = Pipe()
+            stdoutPipe = pipe
+            process.standardOutput = pipe
+        }
         process.standardError = stderr
         process.standardInput = FileHandle.nullDevice
 
         do {
             try process.run()
         } catch {
+            if ptySlaveFD != -1 { Darwin.close(ptySlaveFD) }
+            if ptyMasterFD != -1 { Darwin.close(ptyMasterFD) }
+            withExtendedLifetime(ptySlaveHandle) {}
             continuation.yield(.failed(error.localizedDescription))
             return
         }
 
+        if ptySlaveFD != -1 {
+            Darwin.close(ptySlaveFD)
+            ptySlaveFD = -1
+        }
+        withExtendedLifetime(ptySlaveHandle) {}
+
         let group = DispatchGroup()
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {
-            pump(stdout.fileHandleForReading) { continuation.yield(.stdout($0)) }
+            if ptyMasterFD != -1 {
+                pumpFD(ptyMasterFD) { continuation.yield(.stdout($0)) }
+                Darwin.close(ptyMasterFD)
+            } else if let stdoutPipe {
+                pump(stdoutPipe.fileHandleForReading) { continuation.yield(.stdout($0)) }
+            }
             group.leave()
         }
         group.enter()
@@ -242,6 +279,22 @@ public struct ProcessCommandRunner: CommandRunning {
             if data.isEmpty { break }
             let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
             if !text.isEmpty { yield(text) }
+        }
+    }
+
+    private static func pumpFD(_ fd: Int32, yield: (String) -> Void) {
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = Darwin.read(fd, &buffer, buffer.count)
+            if count > 0 {
+                let data = Data(buffer[..<count])
+                let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+                if !text.isEmpty { yield(text) }
+            } else if count == -1, errno == EINTR {
+                continue
+            } else {
+                break
+            }
         }
     }
 
