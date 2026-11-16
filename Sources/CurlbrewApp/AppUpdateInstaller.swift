@@ -1,5 +1,6 @@
 import AppKit
 import CellarCore
+import CryptoKit
 import Foundation
 import os
 
@@ -18,6 +19,7 @@ enum AppInstallError: LocalizedError {
     case download
     case redirect(String)
     case tooLarge
+    case checksumMismatch
     case unpack(String)
     case bundle
     case replace(String)
@@ -31,10 +33,12 @@ enum AppInstallError: LocalizedError {
             "La descarga se desvió a \(host), que no es un servidor de releases de GitHub"
         case .tooLarge:
             "El archivo de la release es más grande de lo esperado"
+        case .checksumMismatch:
+            "El archivo descargado no coincide con el resumen SHA-256 de la release"
         case .unpack(let message):
             "No se pudo abrir el zip: \(message)"
         case .bundle:
-            "El zip no contiene Curlbrew.app con la versión y el identificador esperados"
+            "El zip no contiene Curlbrew.app válido con la versión, firma y arquitectura esperadas"
         case .replace(let message):
             "No se pudo reemplazar la app: \(message)"
         case .relaunch(let message):
@@ -67,6 +71,14 @@ enum AppUpdateInstaller {
         let zip = work.appendingPathComponent(release.assetName)
         await log("Descargando \(release.downloadURL.absoluteString)", false)
         try await download(release.downloadURL, to: zip)
+
+        if let expectedSHA256 = release.sha256 {
+            let actualSHA256 = try sha256Hex(of: zip)
+            guard actualSHA256 == expectedSHA256 else {
+                throw AppInstallError.checksumMismatch
+            }
+            await log("SHA-256 verificado: \(actualSHA256)", false)
+        }
 
         let unpacked = work.appendingPathComponent("unpacked", isDirectory: true)
         try FileManager.default.createDirectory(at: unpacked, withIntermediateDirectories: true)
@@ -101,14 +113,22 @@ enum AppUpdateInstaller {
             throw AppInstallError.bundle
         }
 
-        await log("Reemplazando \(bundle.path)", false)
-        let copy = PlannedCommand(
-            argv: ["/usr/bin/ditto", app.path, bundle.path],
-            summary: "Instalar Curlbrew \(release.version)"
+        let verify = PlannedCommand(
+            argv: ["/usr/bin/codesign", "--verify", "--deep", "--strict", app.path],
+            summary: "Comprobar la firma del bundle"
         )
-        await log("$ \(copy.display)", false)
-        let copied = await runner.collect(copy)
-        guard copied.succeeded else { throw AppInstallError.replace(failureText(copied)) }
+        await log("$ \(verify.display)", false)
+        let verified = await runner.collect(verify)
+        guard verified.succeeded else {
+            throw AppInstallError.bundle
+        }
+
+        await log("Reemplazando \(bundle.path)", false)
+        do {
+            _ = try FileManager.default.replaceItemAt(bundle, withItemAt: app)
+        } catch {
+            throw AppInstallError.replace(error.localizedDescription)
+        }
 
         let quarantine = PlannedCommand(
             argv: ["/usr/bin/xattr", "-cr", bundle.path],
@@ -116,6 +136,16 @@ enum AppUpdateInstaller {
         )
         await log("$ \(quarantine.display)", false)
         _ = await runner.collect(quarantine)
+    }
+
+    private static func sha256Hex(of fileURL: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     static func relaunch(_ bundle: URL) async throws {

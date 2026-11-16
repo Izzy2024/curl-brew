@@ -6,13 +6,15 @@ public struct AppRelease: Equatable, Sendable {
     public var assetName: String
     public var downloadURL: URL
     public var notesURL: URL
+    public var sha256: String?
 
-    public init(version: String, tag: String, assetName: String, downloadURL: URL, notesURL: URL) {
+    public init(version: String, tag: String, assetName: String, downloadURL: URL, notesURL: URL, sha256: String? = nil) {
         self.version = version
         self.tag = tag
         self.assetName = assetName
         self.downloadURL = downloadURL
         self.notesURL = notesURL
+        self.sha256 = sha256
     }
 }
 
@@ -65,7 +67,21 @@ public enum AppUpdateFeed {
             throw AppUpdateFailure.noZip(version)
         }
         let notes = URL(string: "https://github.com/\(repository)/releases/tag/v\(version)")!
-        return AppRelease(version: version, tag: tag, assetName: name, downloadURL: url, notesURL: notes)
+        let sha256 = parseSHA256Digest(asset["digest"] as? String)
+        return AppRelease(version: version, tag: tag, assetName: name, downloadURL: url, notesURL: notes, sha256: sha256)
+    }
+
+    static func parseSHA256Digest(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let hex = raw.hasPrefix("sha256:") ? String(raw.dropFirst("sha256:".count)) : raw
+        let normalized = hex.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalized.count == 64,
+              normalized.unicodeScalars.allSatisfy({
+                  ("0"..."9").contains($0) || ("a"..."f").contains($0)
+              }) else {
+            return nil
+        }
+        return normalized
     }
 
     public static func validateBundle(_ data: Data, version: String) -> Bool {

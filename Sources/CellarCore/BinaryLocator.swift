@@ -30,7 +30,7 @@ public struct BinaryLocator: Locating, Sendable, Equatable {
     }
 
     public static func mergedSearchPaths(path: String, home: String = NSHomeDirectory()) -> [String] {
-        var parts = path.split(separator: ":").map(String.init).filter { !$0.isEmpty }
+        var parts = path.split(separator: ":").map(String.init).filter { $0.hasPrefix("/") }
         for extra in extraPaths(home: home) where !parts.contains(extra) {
             parts.append(extra)
         }
@@ -45,17 +45,25 @@ public struct BinaryLocator: Locating, Sendable, Equatable {
     }
 
     public func locate(_ name: String) -> String? {
-        let fileManager = FileManager.default
         if name.contains("/") {
-            return fileManager.isExecutableFile(atPath: name) ? name : nil
+            return isRegularExecutable(atPath: name) ? name : nil
         }
         for directory in searchPaths {
             let candidate = (directory as NSString).appendingPathComponent(name)
-            if fileManager.isExecutableFile(atPath: candidate) {
+            if isRegularExecutable(atPath: candidate) {
                 return candidate
             }
         }
         return nil
+    }
+
+    private func isRegularExecutable(atPath path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+            return false
+        }
+        return fileManager.isExecutableFile(atPath: path)
     }
 }
 

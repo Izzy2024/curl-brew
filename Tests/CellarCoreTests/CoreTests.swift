@@ -332,3 +332,34 @@ private func upgrade(_ package: InstalledPackage, to available: String = "2.0.0"
     #expect(result.failure == nil)
     #expect(result.stdout.contains("pty-ok"))
 }
+
+@Test func rejectsLeadingSlashAndRelativePathEntries() throws {
+    #expect(!PackageName.isValid("/etc/passwd"))
+    let merged = BinaryLocator.mergedSearchPaths(path: ".:./bin:/usr/bin", home: "/Users/example")
+    #expect(!merged.contains("."))
+    #expect(!merged.contains("./bin"))
+    #expect(merged.first == "/usr/bin")
+    #expect(CommandDefaults.isolatedDirectory != "/private/tmp")
+    let attrs = try FileManager.default.attributesOfItem(atPath: CommandDefaults.isolatedDirectory)
+    let perms = (attrs[.posixPermissions] as? NSNumber)?.intValue
+    #expect(perms == 0o700)
+}
+
+@Test func releaseParsesValidSHA256DigestAndIgnoresMalformedOne() throws {
+    let digest = String(repeating: "a", count: 64)
+    let withDigest = Data("""
+    {"tag_name":"v0.4.0","prerelease":false,"assets":[
+      {"name":"Curlbrew-0.4.0.zip","digest":"sha256:\(digest)","browser_download_url":"https://github.com/Izzy2024/curl-brew/releases/download/v0.4.0/Curlbrew-0.4.0.zip"}
+    ]}
+    """.utf8)
+    let release = try AppUpdateFeed.release(from: withDigest, newerThan: "0.3.0")
+    #expect(release?.sha256 == digest)
+
+    let badDigest = Data("""
+    {"tag_name":"v0.4.0","prerelease":false,"assets":[
+      {"name":"Curlbrew-0.4.0.zip","digest":"sha256:not-hex","browser_download_url":"https://github.com/Izzy2024/curl-brew/releases/download/v0.4.0/Curlbrew-0.4.0.zip"}
+    ]}
+    """.utf8)
+    let releaseBad = try AppUpdateFeed.release(from: badDigest, newerThan: "0.3.0")
+    #expect(releaseBad?.sha256 == nil)
+}

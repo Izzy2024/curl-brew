@@ -20,7 +20,7 @@ import Testing
     #expect(packages[2].kind == .cask)
     let install = provider.planInstall(PackageRef(name: "wget", kind: .formula))
     #expect(install?.argv == ["/opt/homebrew/bin/brew", "install", "--formula", "--", "wget"])
-    #expect(install?.workingDirectory == "/private/tmp")
+    #expect(install?.workingDirectory == CommandDefaults.isolatedDirectory)
     #expect(provider.planInstall(PackageRef(name: "--force", kind: .formula)) == nil)
     let batch = provider.planUpgradeCommands([
         InstalledPackage(name: "wget", version: "1.21.4", provider: .homebrew, kind: .formula),
@@ -98,22 +98,22 @@ import Testing
     runner.set(.init(stdout: "11.19.1\n"), for: ["npm", "--version"])
     let provider = NpmProvider(locator: StaticLocator(paths: ["npm": "/opt/homebrew/bin/npm"]), runner: runner)
     let plan = provider.planInstall(PackageRef(name: "@scope/pkg", kind: .globalPackage))
-    #expect(plan?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "@scope/pkg"])
+    #expect(plan?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "--", "@scope/pkg"])
     #expect(provider.planUninstall(InstalledPackage(name: "--save", version: "1", provider: .npm, kind: .globalPackage)) == nil)
     let upgrade = provider.planUpgrade(InstalledPackage(name: "@github/copilot", version: "1.0.85", provider: .npm, kind: .globalPackage))
-    #expect(upgrade?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "@github/copilot@latest"])
+    #expect(upgrade?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "--", "@github/copilot@latest"])
     let all = provider.planUpgradeList([
         InstalledPackage(name: "left-pad", version: "1.0.0", provider: .npm, kind: .globalPackage),
         InstalledPackage(name: "@github/copilot", version: "1.0.85", provider: .npm, kind: .globalPackage),
     ])
-    #expect(all?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "@github/copilot@latest", "left-pad@latest"])
+    #expect(all?.argv == ["/opt/homebrew/bin/npm", "install", "--global", "--", "@github/copilot@latest", "left-pad@latest"])
     let each = provider.planUpgradeCommands([
         InstalledPackage(name: "left-pad", version: "1.0.0", provider: .npm, kind: .globalPackage),
         InstalledPackage(name: "@github/copilot", version: "1.0.85", provider: .npm, kind: .globalPackage),
     ])
     #expect(each.map(\.argv) == [
-        ["/opt/homebrew/bin/npm", "install", "--global", "@github/copilot@latest"],
-        ["/opt/homebrew/bin/npm", "install", "--global", "left-pad@latest"],
+        ["/opt/homebrew/bin/npm", "install", "--global", "--", "@github/copilot@latest"],
+        ["/opt/homebrew/bin/npm", "install", "--global", "--", "left-pad@latest"],
     ])
     #expect(provider.planUpgrade(nil) == nil)
     #expect(provider.planUpgradeList([]) == nil)
@@ -143,7 +143,7 @@ import Testing
     #expect(packages[0].version == "3.3.3")
     let details = try await provider.details(packages[0])
     #expect(details.summary == "formatter")
-    #expect(provider.planInstall(PackageRef(name: "prettier", kind: .globalPackage))?.argv == ["/Users/example/.bun/bin/bun", "add", "--global", "prettier"])
+    #expect(provider.planInstall(PackageRef(name: "prettier", kind: .globalPackage))?.argv == ["/Users/example/.bun/bin/bun", "add", "--global", "--", "prettier"])
 }
 
 @Test func catalogRejectsTamperedCommandsAndAllowsOfficialOnes() async throws {

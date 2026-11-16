@@ -70,11 +70,11 @@ public struct BunProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
     public func upgrades() async throws -> [PackageUpgrade] { [] }
 
     public func planInstall(_ package: PackageRef) -> PlannedCommand? {
-        plan(package.name, arguments: ["add", "--global", package.name], summary: "Instalar \(package.name) con bun")
+        plan(package.name, arguments: ["add", "--global", "--", package.name], summary: "Instalar \(package.name) con bun")
     }
 
     public func planUninstall(_ package: InstalledPackage) -> PlannedCommand? {
-        plan(package.name, arguments: ["remove", "--global", package.name], summary: "Desinstalar \(package.name) con bun")
+        plan(package.name, arguments: ["remove", "--global", "--", package.name], summary: "Desinstalar \(package.name) con bun")
     }
 
     public func planUpgrade(_ package: InstalledPackage?) -> PlannedCommand? {
@@ -83,7 +83,7 @@ public struct BunProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
             guard PackageName.isValid(package.name) else { return nil }
             return ToolCommand.make(
                 binary: bun,
-                arguments: ["update", "--global", package.name],
+                arguments: ["update", "--global", "--", package.name],
                 summary: "Actualizar \(package.name) con bun"
             )
         }

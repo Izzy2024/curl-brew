@@ -48,14 +48,14 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
     public func planInstall(_ package: PackageRef) -> PlannedCommand? {
         plan(
             package.name,
-            arguments: ["install", "--global", package.name],
+            arguments: ["install", "--global", "--", package.name],
             summary: "Instalar \(package.name) con npm",
             environment: ["npm_config_loglevel": "http", "NO_COLOR": "1"]
         )
     }
 
     public func planUninstall(_ package: InstalledPackage) -> PlannedCommand? {
-        plan(package.name, arguments: ["uninstall", "--global", package.name], summary: "Desinstalar \(package.name) con npm")
+        plan(package.name, arguments: ["uninstall", "--global", "--", package.name], summary: "Desinstalar \(package.name) con npm")
     }
 
     public func planUpgrade(_ package: InstalledPackage?) -> PlannedCommand? {
@@ -78,7 +78,7 @@ public struct NpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePro
             : "Actualizar \(names.count) paquetes globales de npm"
         return ToolCommand.make(
             binary: npm,
-            arguments: ["install", "--global"] + names.map { "\($0)@latest" },
+            arguments: ["install", "--global", "--"] + names.map { "\($0)@latest" },
             summary: summary,
             environment: ["npm_config_loglevel": "http", "NO_COLOR": "1"]
         )
@@ -170,11 +170,11 @@ public struct PnpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePr
     }
 
     public func planInstall(_ package: PackageRef) -> PlannedCommand? {
-        plan(package.name, arguments: ["add", "--global", package.name], summary: "Instalar \(package.name) con pnpm")
+        plan(package.name, arguments: ["add", "--global", "--", package.name], summary: "Instalar \(package.name) con pnpm")
     }
 
     public func planUninstall(_ package: InstalledPackage) -> PlannedCommand? {
-        plan(package.name, arguments: ["remove", "--global", package.name], summary: "Desinstalar \(package.name) con pnpm")
+        plan(package.name, arguments: ["remove", "--global", "--", package.name], summary: "Desinstalar \(package.name) con pnpm")
     }
 
     public func planUpgrade(_ package: InstalledPackage?) -> PlannedCommand? {
@@ -183,7 +183,7 @@ public struct PnpmProvider<Locator: Locating, Runner: CommandRunning>: PackagePr
             guard PackageName.isValid(package.name) else { return nil }
             return ToolCommand.make(
                 binary: pnpm,
-                arguments: ["update", "--global", package.name],
+                arguments: ["update", "--global", "--", package.name],
                 summary: "Actualizar \(package.name) con pnpm"
             )
         }

@@ -331,7 +331,11 @@ struct PackageDetail: View {
                     if !details.summary.isEmpty {
                         Text(details.summary)
                     }
-                    if let homepage = details.homepage, let url = URL(string: homepage) {
+                    if let homepage = details.homepage,
+                       let url = URL(string: homepage),
+                       let scheme = url.scheme?.lowercased(),
+                       (scheme == "https" || scheme == "http"),
+                       url.host != nil {
                         Link(homepage, destination: url)
                     }
                     if let location = details.location ?? package.location {

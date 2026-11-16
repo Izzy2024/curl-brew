@@ -2,9 +2,19 @@ import Darwin
 import Foundation
 
 public enum CommandDefaults {
-    /// Package-manager commands run outside the user's project so a tool that
-    /// walks upward looking for package.json cannot target that project.
-    public static let isolatedDirectory = "/private/tmp"
+    /// Package-manager commands run in a private user-owned directory (0700)
+    /// so a tool that walks upward looking for package.json or .npmrc cannot
+    /// target the user's project or a world-writable shared directory.
+    public static let isolatedDirectory: String = {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("curlbrew-isolated", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: url,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        return url.path
+    }()
 }
 
 public struct PlannedCommand: Sendable, Equatable {

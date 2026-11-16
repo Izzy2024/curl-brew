@@ -2,6 +2,16 @@
 
 All notable changes to Curlbrew will be documented in this file.
 
+## [0.3.1] - 2026-11-16
+
+### Security & Hardening
+- Isolated package-manager working directory to a private `0700` per-user directory instead of `/private/tmp`.
+- Added `--` end-of-options separators in `NpmProvider`, `PnpmProvider`, and `BunProvider`, and rejected leading `/` in `PackageName.isValid`.
+- Filtered relative `PATH` entries in `BinaryLocator.mergedSearchPaths` and enforced regular-file checks in `BinaryLocator.locate`.
+- Added SHA-256 digest verification (`CryptoKit`), `codesign --verify --deep --strict`, and atomic `replaceItemAt` replacement in `AppUpdateInstaller`.
+- Restricted `PackageDetail` homepage `Link` rendering to `http`/`https` URLs and aligned `AppModel.isShell` with `ProcessCommandRunner.isShell`.
+- Added `make test` gate and `.zip.sha256` checksum publishing in `.github/workflows/release.yml`.
+
 ## [0.3.0] - 2026-11-16
 
 ### Added

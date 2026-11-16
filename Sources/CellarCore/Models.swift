@@ -162,7 +162,11 @@ public struct ProviderFailure: Error, Equatable, LocalizedError, Sendable {
 
 public enum PackageName {
     public static func isValid(_ name: String) -> Bool {
-        guard (1...200).contains(name.count), let first = name.first, first != "-", first != "." else {
+        guard (1...200).contains(name.count),
+              let first = name.first,
+              first != "-",
+              first != ".",
+              first != "/" else {
             return false
         }
         if name.contains("..") || name.contains("//") { return false }

@@ -451,7 +451,7 @@ final class AppModel {
 
     private func isShell(_ path: String) -> Bool {
         let name = (path as NSString).lastPathComponent
-        return name == "zsh" || name == "bash" || name == "sh"
+        return name == "zsh" || name == "bash" || name == "sh" || name == "dash"
     }
 
     private func ingestOutput(_ text: String, isStderr: Bool) {
