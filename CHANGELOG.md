@@ -2,6 +2,11 @@
 
 All notable changes to Curlbrew will be documented in this file.
 
+## [0.3.3] - 2026-11-23
+
+### Fixed
+- El clic en el Dock con la ventana cerrada abre una sola ventana; en binarios compilados con el SDK de macOS 15 el manejo por defecto del evento reopen añadía una segunda.
+
 ## [0.3.2] - 2026-11-23
 
 ### Fixed

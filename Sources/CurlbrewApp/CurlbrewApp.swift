@@ -12,6 +12,8 @@ enum AppStore {
 /// Cerrar la última ventana deja la app viva y el clic en el Dock envía el
 /// evento reopen. SwiftUI no repone una ventana cerrada del WindowGroup, así
 /// que el delegado restaura la que haya (minimizada u oculta) o abre otra.
+/// Devuelve false cuando ya enseñó o creó la ventana: el manejo por defecto
+/// del evento duplicaría una segunda.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ application: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -27,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppStore.openMainWindow?()
         }
         application.activate()
-        return true
+        return false
     }
 }
 
