@@ -2,6 +2,14 @@
 
 All notable changes to Curlbrew will be documented in this file.
 
+## [0.3.2] - 2026-11-23
+
+### Fixed
+- Reabre la ventana principal al hacer clic en el Dock cuando la app quedó en segundo plano con la ventana cerrada; también restaura la ventana minimizada u oculta (Cmd+H) en lugar de dejar la app activa sin nada que ver.
+
+### Changed
+- `make app` toma la versión del último tag cuando no se indica `CURLBREW_VERSION`, y firma el bundle fuera de la carpeta Documents para que codesign no lo rechace.
+
 ## [0.3.1] - 2026-11-16
 
 ### Security & Hardening
