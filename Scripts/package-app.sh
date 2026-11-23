@@ -28,15 +28,25 @@ if [[ "$arch" != "arm64" ]]; then
   exit 1
 fi
 
-version="${CURLBREW_VERSION:-0.1.0}"
+# Sin CURLBREW_VERSION, usa el ultimo tag (v0.3.1 -> 0.3.1) para no
+# empaquetar por defecto una version vieja.
+default_version=$(git -C "$root" describe --tags --abbrev=0 2>/dev/null || true)
+version="${CURLBREW_VERSION:-$default_version}"
+if [[ -z "$version" ]]; then
+  echo "no hay tag ni CURLBREW_VERSION; indica la version, p. ej. CURLBREW_VERSION=0.3.1" >&2
+  exit 1
+fi
 version="${version#v}"
 if [[ ! "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
   echo "versión no válida: $version (usa 0.2.0 o v0.2.0)" >&2
   exit 1
 fi
 
-app="$root/Curlbrew.app"
-rm -rf "$app"
+final="$root/Curlbrew.app"
+# Se firma fuera de Documents: su proveedor de archivos estampa FinderInfo
+# sobre el bundle y codesign lo rechaza.
+app="$build/package/Curlbrew.app"
+rm -rf "$app" "$final"
 mkdir -p "$app/Contents/MacOS"
 cp "$binary" "$app/Contents/MacOS/Curlbrew"
 cat > "$app/Contents/Info.plist" <<EOF
@@ -86,7 +96,11 @@ if [[ -f "$icon_src" ]]; then
   rm -rf "$work"
 fi
 
-# Documents stamps FinderInfo onto the bundle; codesign rejects that.
 xattr -cr "$app"
 codesign --force --sign - "$app"
-echo "$app"
+
+rm -rf "$final"
+ditto "$app" "$final"
+xattr -cr "$final"
+codesign --verify "$final"
+echo "$final"

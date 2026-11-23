@@ -56,7 +56,7 @@ The tag must be `v` plus three numbers (`v0.2.0`). `v0.2` or `v0.2.0-beta` neith
 
 That runs `.github/workflows/release.yml` on an arm64 Mac. The workflow builds with `CURLBREW_VERSION` set to the tag, signs the app and publishes the release, including the `Curlbrew-0.2.0.zip` that the **Update** button downloads.
 
-The bundle version comes from the tag. Locally, with no tag, `make app` still produces `0.1.0`. To try another number: `CURLBREW_VERSION=0.2.0 make app`.
+The bundle version comes from the tag. Locally, `make app` takes the version from the latest git tag (`v0.3.1` gives `0.3.1`). To try another number: `CURLBREW_VERSION=0.2.0 make app`.
 
 The signature is still ad-hoc. Whoever receives the update trusts this repository's release, not an Apple notarization.
 
